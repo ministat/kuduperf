@@ -2,11 +2,13 @@ package org.apache.kudu.examples;
 
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.*;
+import org.apache.commons.lang3.time.*;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ScanItemTable {
     public static List<Long> readFileLines(String fileName) {
@@ -37,6 +39,10 @@ public class ScanItemTable {
                                  String kuduMasters,
                                  String tableName,
                                  int iteration) {
+        System.out.println("item id file: " + itemIdFile);
+        System.out.println("kudu masters: " + kuduMasters);
+        System.out.println("kudu table: " + tableName);
+        System.out.println("iteration: " + iteration);
         KuduClient client = new KuduClient.KuduClientBuilder(kuduMasters).build();
         try {
             // read all item ids
@@ -60,37 +66,40 @@ public class ScanItemTable {
                         item);
                 KuduScanner scanner = client.newScannerBuilder(kuduTable)
                         .setProjectedColumnNames(projectColumns)
+                        .cacheBlocks(false)
                         .addPredicate(predicate)
                         .build();
                 scanners.add(scanner);
             }
-            // run the perf test
-            long begin = System.currentTimeMillis();
-
             List<Double> prices = new ArrayList<Double>(allItemIds.size());
+            for (int k = 0; k < scanners.size(); k++) {
+                prices.add(-1.0);
+            }
+            // run the perf test
+            StopWatch watch = new StopWatch();
+            watch.start();
             for (int i = 0; i < iteration; i++) {
-                for (int k = 0; k < scanners.size(); k++) {
-                    KuduScanner scanner = scanners.get(k);
-                    double res = -1;
-                    while (scanner.hasMoreRows()) {
-                        RowResultIterator results = null;
-                        try {
-                            results = scanner.nextRows();
-                            while (results.hasNext()) {
-                                RowResult result = results.next();
-                                res = result.getDouble("curnt_price");
-                            }
-                        } catch (KuduException ke) {
-                            ke.printStackTrace();
+                int k = ThreadLocalRandom.current().nextInt(0, scanners.size());
+                KuduScanner scanner = scanners.get(k);
+                double res = -1;
+                while (scanner.hasMoreRows()) {
+                    RowResultIterator results = null;
+                    try {
+                        results = scanner.nextRows();
+                        while (results.hasNext()) {
+                            RowResult result = results.next();
+                            res = result.getDouble("curnt_price");
                         }
-                    }
-                    if (prices.size() < scanners.size()) {
-                        prices.add(res);
+                    } catch (KuduException ke) {
+                        ke.printStackTrace();
                     }
                 }
+                if (res != -1) {
+                    prices.set(k, res);
+                }
             }
-            long end = System.currentTimeMillis();
-            System.out.println("Run " + iteration * scanners.size() + " scans take " + (end-begin) + " ms");
+            watch.stop();
+            System.out.println("Run " + iteration + " scans take " + watch.getTime() + " ms");
             System.out.println("The SQL is like \"select curnt_price from " + tableName + " where item_id = ?\"");
             for (int k = 0; k < scanners.size(); k++) {
                 System.out.println("item: " + allItemIds.get(k) + " price: " + prices.get(k));
