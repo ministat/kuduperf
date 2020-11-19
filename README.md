@@ -1,5 +1,5 @@
 
-#Target
+# Target
 
 This repo targets to evaluate kudu point lookup performance. The table is like:
 
@@ -14,12 +14,12 @@ USING kudu OPTIONS (
 )
 
 ```
-#Build
+# Build
 ```
 mvn clean package
 ```
 
-#Run
+# Run
 ```
 java -jar kudu-mt-query-itemid-1.0-SNAPSHOT.jar -f item_ids.txt -k xxx0:7051,xxx1:7051,xxx2:7051 -t kudu_table -i 200
 ```
@@ -46,7 +46,7 @@ the item_ids.txt contains item_id:
 114419520145
 ```
 
-#Output
+# Output
 ```
 Table 'kudu_marketing_item_store_nov13' colums: 134
 Run 40000 scans take 531 ms
