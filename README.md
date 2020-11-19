@@ -49,8 +49,10 @@ the item_ids.txt contains item_id:
 
 # Output
 ```
+iteration: 1
 Table 'kudu_marketing_item_store_nov13' colums: 134
-Run 40000 scans take 531 ms
+Run 1 scans take 1056 ms
+The SQL is like "select curnt_price from kudu_marketing_item_store_nov13 where item_id = ?"
 item: 114417465925 price: 30.0
 item: 114417507056 price: 7.99
 item: 114417508976 price: 190.0
@@ -58,14 +60,6 @@ item: 114417509062 price: 12.71
 item: 114417512889 price: 10.1
 item: 114417515816 price: 37.06
 item: 114417517279 price: 14.08
-item: 114417518133 price: 5.0
-item: 114417527310 price: 4.0
-item: 114417539029 price: 15.99
-item: 114417543273 price: 110.0
-item: 114417543430 price: 65.0
-item: 114417551136 price: 50.0
-item: 114417554267 price: 1.0
-item: 114417582754 price: 14.01
 ...
 item: 114419513353 price: 39.99
 item: 114419520145 price: 52.35

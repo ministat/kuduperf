@@ -79,23 +79,24 @@ public class ScanItemTable {
             StopWatch watch = new StopWatch();
             watch.start();
             for (int i = 0; i < iteration; i++) {
-                int k = ThreadLocalRandom.current().nextInt(0, scanners.size());
-                KuduScanner scanner = scanners.get(k);
-                double res = -1;
-                while (scanner.hasMoreRows()) {
-                    RowResultIterator results = null;
-                    try {
-                        results = scanner.nextRows();
-                        while (results.hasNext()) {
-                            RowResult result = results.next();
-                            res = result.getDouble("curnt_price");
+                for (int k = 0; k < scanners.size(); k++) {
+                    KuduScanner scanner = scanners.get(k);
+                    double res = -1;
+                    while (scanner.hasMoreRows()) {
+                        RowResultIterator results = null;
+                        try {
+                            results = scanner.nextRows();
+                            while (results.hasNext()) {
+                                RowResult result = results.next();
+                                res = result.getDouble("curnt_price");
+                            }
+                        } catch (KuduException ke) {
+                            ke.printStackTrace();
                         }
-                    } catch (KuduException ke) {
-                        ke.printStackTrace();
                     }
-                }
-                if (res != -1) {
-                    prices.set(k, res);
+                    if (res != -1) {
+                        prices.set(k, res);
+                    }
                 }
             }
             watch.stop();
