@@ -1,13 +1,14 @@
 
 # Target
 
-This repo targets to evaluate kudu point lookup performance. The table is like:
+This repo targets to evaluate kudu point lookup performance. The table has more than 100 columns, it DDL is like:
 
 ```
 CREATE TABLE kudu_poc.kudu_marketing_item(
   item_id long not null,
   curnt_price double,
   price_update_time timestamp
+  ...
 )
 USING kudu OPTIONS (
   kudu.tableHashPartitions 'item_id,512'
