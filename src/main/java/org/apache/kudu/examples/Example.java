@@ -17,9 +17,11 @@
 
 package org.apache.kudu.examples;
 
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
@@ -47,7 +49,7 @@ import org.apache.kudu.client.RowResultIterator;
  */
 public class Example {
   private static final Double DEFAULT_DOUBLE = 12.345;
-  private static final String KUDU_MASTERS = System.getProperty("kuduMasters", "localhost:7051");
+  private static String KUDU_MASTERS = System.getProperty("kuduMasters", "localhost:7051");
 
   static void createExampleTable(KuduClient client, String tableName)  throws KuduException {
     // Set up a simple schema.
@@ -174,33 +176,77 @@ public class Example {
   }
 
   public static void main(String[] args) {
+    /*
     System.out.println("-----------------------------------------------");
     System.out.println("Will try to connect to Kudu master(s) at " + KUDU_MASTERS);
     System.out.println("Run with -DkuduMasters=master-0:port,master-1:port,... to override.");
     System.out.println("-----------------------------------------------");
-    String tableName = "java_example-" + System.currentTimeMillis();
-    KuduClient client = new KuduClient.KuduClientBuilder(KUDU_MASTERS).build();
+    */
+    ExampleArguments eArgParser = new ExampleArguments();
+    if (!eArgParser.parseArgs(args)) {
+      return;
+    };
+    if (eArgParser.kuduMasters == null) {
+      System.out.println("No kudu masters");
+      return;
+    }
+    KUDU_MASTERS = eArgParser.kuduMasters;
+    String tableName = eArgParser.tableName == null ?
+                       "java_example-" + System.currentTimeMillis() :
+                       eArgParser.tableName;
+    KuduClient client = null;
+    if (eArgParser.useKerberos &&
+        eArgParser.keytab != null &&
+        eArgParser.principalName != null) {
+      try {
+        System.out.println("Use kerberos for " + eArgParser.principalName + " through " + eArgParser.keytab);
+        UserGroupInformation.loginUserFromKeytab(eArgParser.principalName, eArgParser.keytab);
+        client = UserGroupInformation.getLoginUser().doAs(
+                new PrivilegedExceptionAction<KuduClient>() {
+
+                  @Override
+                  public KuduClient run() throws Exception {
+                    return new KuduClient.KuduClientBuilder(KUDU_MASTERS).build();
+                  }
+                }
+        );
+      } catch (Exception e) {
+        System.out.println(e);
+        return;
+      }
+    } else {
+      client = new KuduClient.KuduClientBuilder(KUDU_MASTERS).build();
+    }
 
     try {
-      createExampleTable(client, tableName);
-
+      if ((eArgParser.mode & 1 ) == 1) {
+        createExampleTable(client, tableName);
+      }
       int numRows = 150;
-      insertRows(client, tableName, numRows);
+      if ((eArgParser.mode & 2) == 2) {
+        insertRows(client, tableName, numRows);
+      }
 
       // Alter the table, adding a column with a default value.
       // Note: after altering the table, the table needs to be re-opened.
-      AlterTableOptions ato = new AlterTableOptions();
-      ato.addColumn("added", org.apache.kudu.Type.DOUBLE, DEFAULT_DOUBLE);
-      client.alterTable(tableName, ato);
-      System.out.println("Altered the table");
+      if ((eArgParser.mode & 4) == 4) {
+        AlterTableOptions ato = new AlterTableOptions();
+        ato.addColumn("added", org.apache.kudu.Type.DOUBLE, DEFAULT_DOUBLE);
+        client.alterTable(tableName, ato);
+        System.out.println("Altered the table");
+      }
 
-      scanTableAndCheckResults(client, tableName, numRows);
+      if ((eArgParser.mode & 8) == 8) {
+        scanTableAndCheckResults(client, tableName, numRows);
+      }
     } catch (Exception e) {
       e.printStackTrace();
     } finally {
       try {
-        client.deleteTable(tableName);
-        System.out.println("Deleted the table");
+        if ((eArgParser.mode & 16) == 16) {
+          client.deleteTable(tableName);
+          System.out.println("Deleted the table");
+        }
       } catch (Exception e) {
         e.printStackTrace();
       } finally {
