@@ -25,6 +25,15 @@ public class ExampleArguments {
             usage = "use Kerberos authentication. Default is false")
     public boolean useKerberos = false;
 
+    @Option(name = "-n", aliases = "--threads", usage = "Sepcify the thread number")
+    public int threads = 1;
+
+    @Option(name = "-r", aliases = "--rows", usage = "Specify the row number")
+    public int rows = 150;
+
+    @Option(name = "-d", aliases = "--durationMs", usage = "Specify the duration milli-seconds for stress test. -1 means disable stress test")
+    public int duration = -1;
+
     public boolean parseArgs(final String[] args) {
         final CmdLineParser parser = new CmdLineParser(this);
         if (args.length < 1) {

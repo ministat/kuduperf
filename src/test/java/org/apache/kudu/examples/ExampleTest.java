@@ -43,7 +43,7 @@ public class ExampleTest {
     @Test
     public void testCreateExampleTable() throws KuduException {
         String tableName = "test_create_example";
-        Example.createExampleTable(harness.getClient(), tableName);
+        KuduOperations.createExampleTable(harness.getClient(), tableName);
         assertTrue(harness.getClient().tableExists(tableName));
     }
 }
