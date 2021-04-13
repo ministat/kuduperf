@@ -84,7 +84,6 @@ public class KuduOperations {
     static String scanTableAndCheckResults(KuduClient client, String tableName, int numRows) throws KuduException {
         KuduTable table = client.openTable(tableName);
         Schema schema = table.getSchema();
-
         // Scan with a predicate on the 'key' column, returning the 'value' and "added" columns.
         List<String> projectColumns = new ArrayList<>(2);
         projectColumns.add("key");
@@ -131,7 +130,7 @@ public class KuduOperations {
             throw new RuntimeException("scan error: expected " + expectedResultCount +
                     " results but got " + resultCount + " results");
         }
-        int expectedNullCount = expectedResultCount / 2 + (numRows % 2 == 0 ? 1 : 0);
+        int expectedNullCount = expectedResultCount / 2 + (expectedResultCount % 2 == 0 ? 0 : 1);
         if (nullCount != expectedNullCount) {
             throw new RuntimeException("scan error: expected " + expectedNullCount +
                     " rows with value=null but found " + nullCount);

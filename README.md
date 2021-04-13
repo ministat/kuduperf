@@ -16,6 +16,13 @@ USING kudu OPTIONS (
 
 ```
 # Build
+
+In order to get the latest kudu-client 1.15.0, which is not published yet, we have to build it manually and install it to local M2:
+
+```
+mvn install:install-file -Dfile=`pwd`/local-maven-repo/kudu-client-1.15.0.jar -DgroupId=org.apache.kudu -DartifactId=kudu-client -Dversion=1.15.0 -Dpackaging=jar -DgeneratePom=true
+```
+
 ```
 mvn clean package
 ```
@@ -64,3 +71,5 @@ item: 114417517279 price: 14.08
 item: 114419513353 price: 39.99
 item: 114419520145 price: 52.35
 ```
+
+

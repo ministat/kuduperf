@@ -15,6 +15,9 @@ public class ExampleArguments {
     @Option(name = "-t", aliases = "--tableName", usage = "Specify the table name, otherwise it is java_example-xxx")
     public String tableName = null;
 
+    @Option(name = "-x", aliases = "--removeTable", usage = "Remove the table specified by --tableName")
+    public boolean removeTable = false;
+
     @Option(name = "-p", aliases = "--principal", usage = "Specify the principal name")
     public String principalName = null;
 
@@ -24,6 +27,9 @@ public class ExampleArguments {
     @Option(name = "-b", aliases = "--useKerberos",
             usage = "use Kerberos authentication. Default is false")
     public boolean useKerberos = false;
+
+    @Option(name = "-l", aliases = "--listTables", usage = "List all tables")
+    public boolean listTable = false;
 
     @Option(name = "-n", aliases = "--threads", usage = "Sepcify the thread number")
     public int threads = 1;

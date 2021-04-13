@@ -17,18 +17,16 @@
 
 package org.apache.kudu.examples;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 
+import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.ListTablesResponse;
 import org.apache.kudu.examples.threading.StressExecutors;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.kudu.client.AlterTableOptions;
 import org.apache.kudu.client.KuduClient;
 
 import static org.apache.kudu.examples.KuduOperations.*;
@@ -83,6 +81,43 @@ public class Example {
       return rtn;
     }
     return null;
+  }
+
+  public static void ListAllTables(ExampleArguments eArgParser) {
+    final String kuduMasters = eArgParser.kuduMasters;
+    StringBuffer sb = new StringBuffer();
+    KuduClient client = new KuduClient.KuduClientBuilder(kuduMasters).build();
+    try {
+      ListTablesResponse resp = client.getTablesList();
+      List<String> tables = resp.getTablesList();
+      if (tables != null && !tables.isEmpty()) {
+        for (String s : tables) {
+          sb.append(s).append(System.lineSeparator());
+        }
+        System.out.println(sb.toString());
+      } else {
+        System.out.println("No tables");
+      }
+    } catch (KuduException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void RemoveTable(ExampleArguments eArgParser) {
+    final String kuduMasters = eArgParser.kuduMasters;
+    if (eArgParser.tableName == null) {
+      System.out.println("Missing tableName");
+      return;
+    }
+
+    final String tableName = eArgParser.tableName;
+    KuduClient client = new KuduClient.KuduClientBuilder(kuduMasters).build();
+    try {
+      client.deleteTable(tableName);
+      System.out.println("Table " + tableName + " was removed");
+    } catch (KuduException e) {
+      e.printStackTrace();
+    }
   }
 
   public class ThreadingKuduExecutor implements Callable<String>
@@ -150,6 +185,14 @@ public class Example {
     };
     if (eArgParser.kuduMasters == null) {
       System.out.println("No kudu masters");
+      return;
+    }
+    if (eArgParser.removeTable) {
+      RemoveTable(eArgParser);
+      return;
+    }
+    if (eArgParser.listTable) {
+      ListAllTables(eArgParser);
       return;
     }
     if (eArgParser.duration > 0) {
