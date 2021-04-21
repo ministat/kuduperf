@@ -17,9 +17,17 @@
 
 package org.apache.kudu.examples;
 
+import io.prometheus.client.*;
+import io.prometheus.client.exporter.*;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 
 import org.apache.kudu.client.KuduException;
@@ -41,6 +49,7 @@ import static org.apache.kudu.examples.Utilities.convertExceptionMessage;
  * - Delete a table.
  */
 public class Example {
+  public static final int CONSUMER_QUEUE_LEN = 1024;
   public static String RunInternal(int threadId,
                                    ExampleArguments eArgParser) {
     final String kuduMasters = eArgParser.kuduMasters;
@@ -161,13 +170,100 @@ public class Example {
     System.out.println("All tests takes " + (end - start) + " ms");
   }
 
-  public static void multiThreadStressTest(final ExampleArguments eArgParser) {
+  public static void sendPushgateway(final ExampleArguments eArgParser,
+                                     String label,
+                                     long value) throws IOException {
+    String url = eArgParser.prometheus_endpoint;
+    if (url == null) {
+      return;
+    }
+    String hostname = InetAddress.getLocalHost().getHostName();
+    CollectorRegistry registry = new CollectorRegistry();
+    Gauge guage = Gauge.build("kudu_stress_metrics", "Kudu stress test metrics")
+            .labelNames("node", "label")
+            .create();
+    guage.labels(hostname, label).set(value);
+    guage.register(registry);
+    PushGateway pg = new PushGateway(url);
+    Map<String, String> groupingKey = new HashMap<String, String>();
+    groupingKey.put("instance", "kudu_instance");
+    pg.pushAdd(registry, "kudu_job", groupingKey);
+  }
+
+  public static class PrometheusItem {
+    public String label;
+    public long value;
+    public boolean end;
+  }
+
+  public static class  PrometheusPusherConsumer implements Runnable {
+    private BlockingQueue<PrometheusItem> _queue;
+    private CollectorRegistry _registry;
+    private String _hostname;
+    private PushGateway _pushgateway;
+    private Map<String, String> _groupingKey;
+
+    public PrometheusPusherConsumer(
+            ExampleArguments eArgParser,
+            BlockingQueue<PrometheusItem> q) {
+      _pushgateway = new PushGateway(eArgParser.prometheus_endpoint);
+      _queue = q;
+      try {
+        _hostname = InetAddress.getLocalHost().getHostName();
+      } catch (UnknownHostException e) {
+        e.printStackTrace();
+      }
+      _registry = new CollectorRegistry();
+      _groupingKey = new HashMap<String, String>();
+      _groupingKey.put("instance", "kudu_instance");
+    }
+
+    @Override
+    public void run() {
+      while (true) {
+        try {
+          PrometheusItem item = _queue.take();
+          if (item.end) {
+            // a flag is used to break the loop
+            break;
+          }
+          _registry.clear();
+          Gauge guage = Gauge.build("kudu_stress_metrics", "Kudu stress test metrics")
+                  .labelNames("node", "label")
+                  .create();
+          guage.labels(_hostname, item.label).set(item.value);
+          guage.register(_registry);
+          _pushgateway.pushAdd(_registry, "kudu_job", _groupingKey);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }
+    }
+  }
+
+  public static void multiThreadStressTest(final ExampleArguments eArgParser,
+                                           BlockingQueue<PrometheusItem> queue) {
     StressExecutors se = new StressExecutors(eArgParser.threads, eArgParser.threads, eArgParser.duration);
     se.run((i) -> {
       long start = System.currentTimeMillis();
       String rtn = RunInternal(i, eArgParser);
       long end = System.currentTimeMillis();
-      return i + " thread takes: " + (end - start) + "ms." +
+      long duration = end - start;
+      try {
+        if (queue != null) {
+          PrometheusItem item = new PrometheusItem();
+          item.label = "thread_" + i;
+          item.value = duration;
+          item.end = false;
+          queue.put(item);
+        } else {
+          sendPushgateway(eArgParser, "thread_" + i, duration);
+        }
+      } catch (Exception e) {
+        System.out.println(convertExceptionMessage(e));
+      }
+
+      return i + " thread takes: " + duration + "ms." +
               System.lineSeparator() +
               "------------------------------" + System.lineSeparator() +
               rtn +
@@ -195,8 +291,35 @@ public class Example {
       ListAllTables(eArgParser);
       return;
     }
+
     if (eArgParser.duration > 0) {
-      multiThreadStressTest(eArgParser);
+      BlockingQueue<PrometheusItem> queue = null;
+      PrometheusPusherConsumer consumer = null;
+      Thread t = null;
+      try {
+        if (eArgParser.prometheus_endpoint != null) {
+          queue = new ArrayBlockingQueue<>(CONSUMER_QUEUE_LEN);
+          consumer = new PrometheusPusherConsumer(eArgParser, queue);
+        }
+        if (consumer != null) {
+          t = new Thread(consumer);
+          t.start();
+        }
+        multiThreadStressTest(eArgParser, queue);
+      } finally {
+        // stop the thread
+        if (t != null) {
+          try {
+            PrometheusItem item = new PrometheusItem();
+            item.end = true;
+            queue.put(item);
+            t.join();
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
+      }
+
     } else {
       runThreading(eArgParser);
     }

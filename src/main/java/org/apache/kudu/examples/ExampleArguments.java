@@ -40,6 +40,9 @@ public class ExampleArguments {
     @Option(name = "-d", aliases = "--durationMs", usage = "Specify the duration milli-seconds for stress test. -1 means disable stress test")
     public int duration = -1;
 
+    @Option(name = "-u", aliases = "--prometheus", usage = "Specify the prometheus endpoint: e.g. hms-asset00445326.stratus.lvs.ebay.com:9091")
+    public String prometheus_endpoint;
+
     public boolean parseArgs(final String[] args) {
         final CmdLineParser parser = new CmdLineParser(this);
         if (args.length < 1) {
